@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["Django >= 4.2"]
+dependencies = ["Django >= 4.1"]
 
 [project.urls]
 Homepage = "https://github.com/san4ezy/django_softdelete"
@@ -43,11 +43,28 @@ include = [
 # https://hatch.pypa.io/latest/config/internal/testing/
 randomize = true
 extra-dependencies = [
-    "Django==5.0.1",
     "pytest-django ~= 4.8.0",
     "pytest-cov ~= 5.0"
 ]
-extra-args = ["--nomigrations", "--pythonwarnings=all", "--cov", "--cov-report=json", "--cov-report=term"]
+
+[tool.hatch.envs.test]
+installer = "uv"
+matrix-name-format = "{variable}-{value}"
+dependencies = ["pytest", "pytest-cov","pytest-django", "coverage[toml]", "django~={matrix:django}"]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest"
+test-cov = "pytest --cov --cov-report=json --cov-report=term"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+django = ["4.2"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11", "3.12"]
+django = ["5.0"]
+
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "test_project.settings"
+addopts = "--nomigrations --pythonwarnings=all"

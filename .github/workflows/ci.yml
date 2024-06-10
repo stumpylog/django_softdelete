@@ -1,0 +1,154 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: test-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      -
+        name: Install Hatch
+        run: |
+          echo "TBD"
+
+  test:
+    name: Test (Python ${{ matrix.python-version }} with Django ${{ matrix.django-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - lint
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        django-version: ["4.2", "5.0"]
+        exclude:
+            - python-version: "3.8"
+              django-version: "5.0"
+            - python-version: "3.9"
+              django-version: "5.0"
+
+    steps:
+    -
+      uses: actions/checkout@v4
+    -
+      name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    -
+      name: Install Hatch
+      run: |
+          pip3 --quiet install --upgrade hatch uv
+          hatch --version
+          uv --version
+    -
+        name: Run tests
+        run: |
+          hatch run +py=${{ matrix.python-version }} +django=${{ matrix.django-version }} test:test-cov
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - lint
+    steps:
+      -
+        uses: actions/checkout@v4
+      -
+        name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      -
+        name: Install Hatch
+        run: |
+          pip3 --quiet install --upgrade hatch uv
+          hatch --version
+          uv --version
+      -
+        name: Build
+        run: |
+          hatch build --clean
+      -
+        uses: actions/upload-artifact@v4
+        with:
+            name: artifacts
+            path: dist/*
+            if-no-files-found: error
+            retention-days: 7
+  create-release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    needs:
+      - build
+      - test
+    steps:
+      -
+        uses: actions/checkout@v4
+      -
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+          path: dist
+      -
+        name: Get latest release info
+        id: query-release-info
+        uses: release-flow/keep-a-changelog-action@v3
+        with:
+          command: query
+          version: ${{ github.ref_name }}
+      -
+        name: Display release info
+        run: |
+          echo "Version: ${{ steps.query-release-info.outputs.version }}"
+          echo "Date: ${{ steps.query-release-info.outputs.release-date }}"
+          echo "${{ steps.query-release-info.outputs.release-notes }}"
+      -
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dist/*.tar.gz,dist/*.whl"
+          body: ${{ steps.query-release-info.outputs.release-notes }}
+
+  pypi-publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+    needs:
+      - build
+      - test
+    steps:
+      -
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+          path: dist
+      -
+        name: Publish build to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.8.14

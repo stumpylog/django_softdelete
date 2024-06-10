@@ -313,22 +313,14 @@ class TestSoftDeleteModel:
         assert self.assert_object_in(product, True, False, True)
 
     def test_signal_calls_on_soft_delete(self, product, signal_mock):
-        with (
-            signal_mock(pre_delete, Product) as pre_delete_mock,
-            signal_mock(post_delete, Product) as post_delete_mock,
-            signal_mock(post_soft_delete, Product) as post_soft_delete_mock,
-        ):
+        with signal_mock(pre_delete, Product) as pre_delete_mock, signal_mock(post_delete, Product) as post_delete_mock, signal_mock(post_soft_delete, Product) as post_soft_delete_mock:
             product.delete()
             assert pre_delete_mock.call_count == 1
             assert post_delete_mock.call_count == 1
             assert post_soft_delete_mock.call_count == 1
 
     def test_signal_calls_on_hard_delete(self, product, signal_mock):
-        with (
-            signal_mock(pre_delete, Product) as pre_delete_mock,
-            signal_mock(post_delete, Product) as post_delete_mock,
-            signal_mock(post_hard_delete, Product) as post_hard_delete_mock,
-        ):
+        with            signal_mock(pre_delete, Product) as pre_delete_mock, signal_mock(post_delete, Product) as post_delete_mock, signal_mock(post_hard_delete, Product) as post_hard_delete_mock:
             product.hard_delete()
             assert pre_delete_mock.call_count == 1
             assert post_delete_mock.call_count == 1
